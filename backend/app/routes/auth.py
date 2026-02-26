@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.schemas.user import UserCreate, UserLogin, UserOut, Token
 from app.models.user import User
 from app.database import SessionLocal, engine
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import hash_password, verify_password, create_access_token, get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -43,3 +43,8 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     token = create_access_token({"sub": db_user.username})
     return {"access_token": token, "token_type": "bearer"}
+
+
+@router.get("/me", response_model=UserOut)
+def read_users_me(current_user: User = Depends(get_current_user)):
+    return current_user
