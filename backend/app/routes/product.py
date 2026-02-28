@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.product import Product
-from app.schemas.product import ProductCreate, ProductOut, ProductList
+from app.schemas.product import ProductCreate, ProductOut, ProductList, ProductUpdate
 from app.core.security import get_current_user
 from app.models.user import User
 from typing import Optional
@@ -59,30 +59,6 @@ def get_products(
 
 
 
-@router.put("/{product_id}", response_model=ProductOut)
-def update_product(
-    product_id: int,
-    product: ProductCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    db_product = db.query(Product).filter(Product.id == product_id).first()
-
-    if not db_product:
-        raise HTTPException(status_code=404, detail="Product not found")
-
-    if db_product.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized")
-
-    for key, value in product.dict().items():
-        setattr(db_product, key, value)
-
-    db.commit()
-    db.refresh(db_product)
-
-    return db_product
-
-
 @router.delete("/{product_id}")
 def delete_product(
     product_id: int,
@@ -101,3 +77,27 @@ def delete_product(
     db.commit()
 
     return {"detail": "Product deleted successfully"}
+
+
+@router.put("/{product_id}", response_model=ProductOut)
+def update_product(
+    product_id: int,
+    product_data: ProductUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    product = db.query(Product).filter(
+        Product.id == product_id,
+        Product.owner_id == current_user.id
+    ).first()
+
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    for key, value in product_data.model_dump(exclude_unset=True).items():
+        setattr(product, key, value)
+
+    db.commit()
+    db.refresh(product)
+
+    return product

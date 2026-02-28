@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 class ProductBase(BaseModel):
     name: str
@@ -23,6 +23,15 @@ class ProductList(BaseModel):
     skip: int
     limit: int
     items: List[ProductOut]
+
+    class Config:
+        from_attributes = True
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    stock: Optional[int] = None
 
     class Config:
         from_attributes = True
