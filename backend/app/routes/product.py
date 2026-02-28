@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.product import Product
-from app.schemas.product import ProductCreate, ProductOut
+from app.schemas.product import ProductCreate, ProductOut, ProductList
 from app.core.security import get_current_user
 from app.models.user import User
 from typing import Optional
