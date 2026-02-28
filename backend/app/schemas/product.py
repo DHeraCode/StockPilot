@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import List
 
 class ProductBase(BaseModel):
     name: str
@@ -12,6 +13,16 @@ class ProductCreate(ProductBase):
 class ProductOut(ProductBase):
     id: int
     owner_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class ProductList(BaseModel):
+    total: int
+    skip: int
+    limit: int
+    items: List[ProductOut]
 
     class Config:
         from_attributes = True

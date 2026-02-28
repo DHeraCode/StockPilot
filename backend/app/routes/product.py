@@ -5,6 +5,8 @@ from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductOut
 from app.core.security import get_current_user
 from app.models.user import User
+from typing import Optional
+from fastapi import Query
 
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -30,13 +32,30 @@ def create_product(
     return db_product
 
 
-@router.get("/", response_model=list[ProductOut])
+
+@router.get("/", response_model=ProductList)
 def get_products(
+    skip: int = 0,
+    limit: int = Query(default=10, le=100),
+    search: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return db.query(Product).filter(Product.owner_id == current_user.id).all()
+    query = db.query(Product).filter(Product.owner_id == current_user.id)
 
+    if search:
+        query = query.filter(Product.name.ilike(f"%{search}%"))
+
+    total = query.count()
+
+    products = query.offset(skip).limit(limit).all()
+
+    return {
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+        "items": products
+    }
 
 
 
