@@ -1,3 +1,4 @@
+#app/schemas/product.py
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -31,7 +32,7 @@ class ProductUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = None
-    stock: Optional[int] = None
+    quantity: Optional[int] = None
 
     class Config:
         from_attributes = True
