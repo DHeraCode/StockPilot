@@ -1,6 +1,9 @@
 # app/core/config.py
-from datetime import timedelta
+from dotenv import load_dotenv
+import os
 
-SECRET_KEY = "TU_SECRETO_SUPER_SEGURO_AQUI"  # Cambia por algo largo y random
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60  # 1 hora
+load_dotenv()
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
