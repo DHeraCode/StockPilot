@@ -3,19 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.schemas.user import UserCreate, UserOut, Token
 from app.models.user import User
-from app.database import SessionLocal, engine
+from app.database import SessionLocal, engine, get_db
 from app.core.security import hash_password, verify_password, create_access_token, get_current_user
 from fastapi.security import OAuth2PasswordRequestForm
 
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# Dependencia para DB
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+
 
 # Registro de usuario (solo admin debería poder usarlo)
 @router.post("/register", response_model=UserOut)

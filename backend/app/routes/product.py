@@ -1,7 +1,7 @@
 # app/routes/product.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.database import SessionLocal
+from app.database import SessionLocal, get_db
 from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductOut, ProductList, ProductUpdate
 from app.core.security import get_current_user
@@ -12,12 +12,7 @@ from fastapi import Query
 
 router = APIRouter(prefix="/products", tags=["products"])
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+
 
 
 @router.post("/", response_model=ProductOut)
