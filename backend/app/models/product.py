@@ -11,7 +11,10 @@ class Product(Base):
     description = Column(String)
     price = Column(Float)
     quantity = Column(Integer)
-
     owner_id = Column(Integer, ForeignKey("users.id"))
+    category_id = Column(Integer, ForeignKey("categories.id"))
 
     owner = relationship("User")
+    category = relationship("Category")
+
+    
