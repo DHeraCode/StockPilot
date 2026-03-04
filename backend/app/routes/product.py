@@ -6,7 +6,7 @@ from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductOut, ProductList, ProductUpdate
 from app.core.security import get_current_user
 from app.models.user import User
-from typing import Optional
+from typing import Optional, List
 from fastapi import Query
 
 
@@ -102,3 +102,20 @@ def update_product(
     db.refresh(product)
 
     return product
+
+
+@router.get("/alerts/low-stock", response_model=List[ProductOut])
+def get_low_stock(
+    threshold: int = Query(default=10, description="Minimum stock threshold"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    products = db.query(Product).filter(
+        Product.owner_id == current_user.id,
+        Product.quantity <= threshold
+    ).all()
+
+    if not products:
+        return []
+
+    return products
