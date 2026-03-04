@@ -8,7 +8,7 @@ from alembic import context
 import os
 from dotenv import load_dotenv
 from app.database import Base
-from app.models import user, product, category
+from app.models import user, product, category, stock_movement
 
 load_dotenv()
 
