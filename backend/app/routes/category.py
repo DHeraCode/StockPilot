@@ -4,16 +4,13 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.category import Category
 from app.schemas.category import CategoryCreate, CategoryOut
-from app.core.security import get_current_user
+from app.core.security import get_current_user, is_admin
 from app.models.user import User
 from typing import List
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
-def is_admin(current_user: User = Depends(get_current_user)):
-    if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
+
 
 @router.post("/", response_model=CategoryOut)
 def create_category(

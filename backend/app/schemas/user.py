@@ -5,7 +5,7 @@ class UserCreate(BaseModel):
     username: str
     email: str
     password: str
-    is_admin: bool = False
+    
 
 class UserLogin(BaseModel):
     username: str

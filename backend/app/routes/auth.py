@@ -12,17 +12,28 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 
-# Registro de usuario (solo admin debería poder usarlo)
+
 @router.post("/register", response_model=UserOut)
-def register(user: UserCreate, db: Session = Depends(get_db)):
+def register(
+    user: UserCreate,
+    db: Session = Depends(get_db)
+):
     existing = db.query(User).filter(User.username == user.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
+    
+    existing_email = db.query(User).filter(User.email == user.email).first()
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already exists")
+
+    # El primer usuario registrado será admin, los demás no
+    is_first_user = db.query(User).count() == 0
+
     db_user = User(
         username=user.username,
         email=user.email,
         hashed_password=hash_password(user.password),
-        is_admin=user.is_admin
+        is_admin=is_first_user
     )
     db.add(db_user)
     db.commit()
