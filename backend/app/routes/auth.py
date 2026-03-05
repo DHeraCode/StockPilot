@@ -1,6 +1,7 @@
 # app/routes/auth.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError, OperationalError
 from app.schemas.user import UserCreate, UserOut, Token
 from app.models.user import User
 from app.database import SessionLocal, engine, get_db
@@ -14,31 +15,57 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserOut)
-def register(
-    user: UserCreate,
-    db: Session = Depends(get_db)
-):
-    existing = db.query(User).filter(User.username == user.username).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Username already exists")
-    
-    existing_email = db.query(User).filter(User.email == user.email).first()
-    if existing_email:
-        raise HTTPException(status_code=400, detail="Email already exists")
+def register(user: UserCreate, db: Session = Depends(get_db)):
+    try:
+        existing = db.query(User).filter(User.username == user.username).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Username already exists"
+            )
 
-    # El primer usuario registrado será admin, los demás no
-    is_first_user = db.query(User).count() == 0
+        existing_email = db.query(User).filter(User.email == user.email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already exists"
+            )
 
-    db_user = User(
-        username=user.username,
-        email=user.email,
-        hashed_password=hash_password(user.password),
-        is_admin=is_first_user
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+        # El primer usuario registrado será admin, los demás no
+        is_first_user = db.query(User).count() == 0
+
+        db_user = User(
+            username=user.username,
+            email=user.email,
+            hashed_password=hash_password(user.password),
+            is_admin=is_first_user  
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+
+    except HTTPException:
+        raise  # Deja pasar las HTTPException sin atraparlas
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered or username taken"
+        )
+    except OperationalError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection error"
+        )
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred"
+        )
 
 # Login
 @router.post("/login", response_model=Token)
