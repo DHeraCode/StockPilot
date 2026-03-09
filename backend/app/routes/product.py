@@ -8,9 +8,10 @@ from app.schemas.product import ProductCreate, ProductOut, ProductList, ProductU
 from app.core.security import get_current_user
 from app.models.user import User
 from typing import Optional, List
+from app.core.logger import get_logger
 
 
-
+logger = get_logger(__name__)
 router = APIRouter(prefix="/products", tags=["products"])
 
 
@@ -25,6 +26,7 @@ def create_product(
     from app.models.category import Category
     category = db.query(Category).filter(Category.id == product.category_id).first()
     if not category:
+        logger.warning(f"Producto no creado - categoría no encontrada | category_id: {product.category_id}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
     
     try:
@@ -32,9 +34,11 @@ def create_product(
         db.add(db_product)
         db.commit()
         db.refresh(db_product)
+        logger.info(f"Producto creado | id: {db_product.id} | nombre: {db_product.name} | owner: {current_user.username}")
         return db_product
     
     except HTTPException:
+        logger.error(f"Error inesperado al crear producto | nombre: {product.name}")
         raise
     except IntegrityError:
         db.rollback()
@@ -92,14 +96,17 @@ def delete_product(
     db_product = db.query(Product).filter(Product.id == product_id).first()
 
     if not db_product:
+        logger.warning(f"Eliminación fallida - producto no encontrado | id: {product_id}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
     if db_product.owner_id != current_user.id:
+        logger.warning(f"Eliminación no autorizada | product_id: {product_id} | user: {current_user.username}")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     
     try:
         db.delete(db_product)
         db.commit()
+        logger.info(f"Producto eliminado | id: {product_id} | user: {current_user.username}")
         return {"detail": "Product deleted successfully"}
     
     except HTTPException:
@@ -131,6 +138,7 @@ def update_product(
     ).first()
 
     if not product:
+        logger.warning(f"Actualización fallida - producto no encontrado | id: {product_id}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
     
     try:
@@ -139,6 +147,7 @@ def update_product(
 
         db.commit()
         db.refresh(product)
+        logger.info(f"Producto actualizado | id: {product_id} | user: {current_user.username}")
         return product
     
     except HTTPException:
@@ -171,5 +180,5 @@ def get_low_stock(
 
     if not products:
         return []
-
+    logger.info(f"Alerta stock bajo | {len(products)} productos bajo umbral {threshold} | user: {current_user.username}")
     return products

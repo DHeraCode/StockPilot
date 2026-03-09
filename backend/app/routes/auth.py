@@ -9,7 +9,9 @@ from app.models.user import User
 from app.database import get_db                    
 from app.core.security import hash_password, verify_password, create_access_token, get_current_user
 from fastapi.security import OAuth2PasswordRequestForm
+from app.core.logger import get_logger
 
+logger = get_logger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -20,6 +22,7 @@ def register(request: Request, user: UserCreate, db: Session = Depends(get_db)):
     try:
         existing = db.query(User).filter(User.username == user.username).first()
         if existing:
+            logger.warning(f"Registro fallido - username ya existe: {user.username}")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Username already exists"
@@ -27,6 +30,7 @@ def register(request: Request, user: UserCreate, db: Session = Depends(get_db)):
 
         existing_email = db.query(User).filter(User.email == user.email).first()
         if existing_email:
+            logger.warning(f"Registro fallido - email ya existe: {user.email}")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Email already exists"
@@ -43,9 +47,11 @@ def register(request: Request, user: UserCreate, db: Session = Depends(get_db)):
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
+        logger.info(f"Usuario registrado | username: {db_user.username} | admin: {db_user.is_admin}")
         return db_user
 
     except HTTPException:
+        logger.error(f"Error inesperado en registro | username: {user.username}")
         raise
     except IntegrityError:
         db.rollback()
@@ -77,18 +83,21 @@ def login(
     db_user = db.query(User).filter(User.username == form_data.username).first()
 
     if not db_user:
+        logger.warning(f"Login fallido - usuario no existe: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,  #  Usando constante
             detail="Incorrect username or password"
         )
 
     if not verify_password(form_data.password, db_user.hashed_password):
+        logger.warning(f"Login fallido - contraseña incorrecta | username: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,  #  Usando constante
             detail="Incorrect username or password"
         )
 
     token = create_access_token({"sub": db_user.username})
+    logger.info(f"Login exitoso | username: {db_user.username}")
     return {"access_token": token, "token_type": "bearer"}
 
 

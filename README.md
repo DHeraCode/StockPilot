@@ -1,4 +1,4 @@
-# StockPilot 🚀
+# StockPilot 
 
 A RESTful inventory management API built with FastAPI, featuring JWT authentication, role-based access control, and full stock movement tracking.
 

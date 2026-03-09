@@ -8,10 +8,28 @@ from app.routes.product import router as product_router
 from app.routes.category import router as category_router
 from app.models import user, product as product_model
 from app.routes.stock_movement import router as stock_router
+from app.middleware.logging_middleware import LoggingMiddleware
+from app.core.logger import get_logger
+from contextlib import asynccontextmanager
 
+
+logger = get_logger("main")
 limiter = Limiter(key_func=get_remote_address)
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Startup ---
+    logger.info("=" * 50)
+    logger.info("StockPilot API iniciada correctamente")
+    logger.info("=" * 50)
+
+    yield  # La aplicación corre aquí
+
+    # --- Shutdown ---
+    logger.info("StockPilot API detenida")
+
+
+app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -29,6 +47,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(LoggingMiddleware)
+
 
 # Registrar rutas
 app.include_router(auth.router)
@@ -38,4 +58,16 @@ app.include_router(stock_router)
 
 @app.get("/")
 def root():
+    logger.info("Health check - API running")  
     return {"message": "StockPilot API running "}
+
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("=" * 50)
+    logger.info("StockPilot API iniciada correctamente")
+    logger.info("=" * 50)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("StockPilot API detenida")

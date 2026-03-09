@@ -7,7 +7,10 @@ from app.schemas.category import CategoryCreate, CategoryOut
 from app.core.security import get_current_user, is_admin
 from app.models.user import User
 from typing import List
+from app.core.logger import get_logger
 
+
+logger = get_logger(__name__)
 router = APIRouter(prefix="/categories", tags=["categories"])
 
 
@@ -20,11 +23,13 @@ def create_category(
 ):
     existing = db.query(Category).filter(Category.name == category.name).first()
     if existing:
+        logger.warning(f"Categoría ya existe: {category.name}")
         raise HTTPException(status_code=400, detail="Category already exists")
     db_category = Category(**category.dict())
     db.add(db_category)
     db.commit()
     db.refresh(db_category)
+    logger.info(f"Categoría creada | ID: {db_category.id} | Nombre: {db_category.name} | Usuario: {current_user.username}")
     return db_category
 
 @router.get("/", response_model=List[CategoryOut])
@@ -42,7 +47,9 @@ def delete_category(
 ):
     category = db.query(Category).filter(Category.id == category_id).first()
     if not category:
+        logger.warning(f"Categoría no encontrada | ID: {category_id}")
         raise HTTPException(status_code=404, detail="Category not found")
     db.delete(category)
     db.commit()
+    logger.info(f"Categoría eliminada | ID: {category_id} | Usuario: {current_user.username}")
     return {"detail": "Category deleted successfully"}

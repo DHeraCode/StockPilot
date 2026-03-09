@@ -8,7 +8,10 @@ from app.schemas.stock_movement import StockMovementCreate, StockMovementOut
 from app.core.security import is_admin
 from app.models.user import User
 from typing import List
+from app.core.logger import get_logger
 
+
+logger = get_logger(__name__)
 router = APIRouter(prefix="/stock", tags=["stock"])
 
 
@@ -21,6 +24,7 @@ def register_movement(
 ):
     product = db.query(Product).filter(Product.id == movement.product_id).first()
     if not product:
+        logger.warning(f"Movimiento fallido - producto no encontrado | ID: {movement.product_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Product not found"
@@ -28,6 +32,7 @@ def register_movement(
 
     # Validar cantidad positiva
     if movement.quantity <= 0:
+        logger.warning(f"Movimiento fallido - cantidad inválida: {movement.quantity} | Producto ID: {movement.product_id}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Quantity must be greater than 0"
@@ -36,6 +41,7 @@ def register_movement(
     # Actualizar stock según tipo de movimiento
     if movement.movement_type == MovementType.salida:
         if product.quantity < movement.quantity:
+            logger.warning(f"Stock insuficiente | Producto ID: {movement.product_id} | Disponible: {product.quantity} | Solicitado: {movement.quantity}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Insufficient stock. Available: {product.quantity}"
@@ -52,9 +58,11 @@ def register_movement(
         db.commit()
         db.refresh(db_movement)
         db.refresh(product)    # Sincroniza estado real desde la BD
+        logger.info(f"Movimiento registrado | Producto: {product.name} | Tipo: {movement.movement_type.value} | Cantidad: {movement.quantity} | Stock actual: {product.quantity} | Usuario: {current_user.username}")
         return db_movement
     except Exception:
         db.rollback()
+        logger.error(f"Error al guardar movimiento | Producto ID: {movement.product_id} | Usuario: {current_user.username}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error saving stock movement"
@@ -68,6 +76,7 @@ def get_movements(
 ):
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
+        logger.warning(f"Consulta de movimientos fallida - producto no encontrado | ID: {product_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
             detail="Product not found"
@@ -76,5 +85,5 @@ def get_movements(
     movements = db.query(StockMovement).filter(
         StockMovement.product_id == product_id
     ).all()
-
+    logger.info(f"Consulta de movimientos | Producto ID: {product_id} | Registros: {len(movements)} | Usuario: {current_user.username}")
     return movements
