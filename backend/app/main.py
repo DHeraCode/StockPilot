@@ -1,20 +1,31 @@
+# backend/app/main.py
+import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from app.routes import auth
+from slowapi.middleware import SlowAPIMiddleware  # Importante añadir este
+
+
 from app.routes.product import router as product_router
 from app.routes.category import router as category_router
-from app.models import user, product as product_model
 from app.routes.stock_movement import router as stock_router
 from app.middleware.logging_middleware import LoggingMiddleware
 from app.core.logger import get_logger
-from contextlib import asynccontextmanager
-
 
 logger = get_logger("main")
-limiter = Limiter(key_func=get_remote_address)
+
+# --- Configuración del Limiter ---
+# Si estamos en modo TESTING, enabled será False y no contará peticiones.
+limiter = Limiter(
+    key_func=get_remote_address,
+    enabled=os.getenv("TESTING") != "true"
+)
+
+from app.routes import auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,15 +39,22 @@ async def lifespan(app: FastAPI):
     # --- Shutdown ---
     logger.info("StockPilot API detenida")
 
+app = FastAPI(
+    title="StockPilot API",
+    lifespan=lifespan
+)
 
-app = FastAPI(lifespan=lifespan)
+# Vincular limiter a la app
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# Añadimos el middleware explícitamente para mejor control en tests
+app.add_middleware(SlowAPIMiddleware)
 
+# --- Middlewares ---
 origins = [
-    "http://localhost:3000",  # React
-    "http://localhost:5173",  # Vite
-    "http://localhost:4200",  # Angular
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:4200",
 ]
 
 app.add_middleware(
@@ -49,8 +67,7 @@ app.add_middleware(
 
 app.add_middleware(LoggingMiddleware)
 
-
-# Registrar rutas
+# --- Rutas ---
 app.include_router(auth.router)
 app.include_router(product_router)
 app.include_router(category_router)
@@ -59,15 +76,7 @@ app.include_router(stock_router)
 @app.get("/")
 def root():
     logger.info("Health check - API running")  
-    return {"message": "StockPilot API running "}
+    return {"message": "StockPilot API running"}
 
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("=" * 50)
-    logger.info("StockPilot API iniciada correctamente")
-    logger.info("=" * 50)
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("StockPilot API detenida")
+# Nota: Se eliminaron @app.on_event("startup") y "shutdown" 
+# porque ya están manejados por la función 'lifespan' arriba.
