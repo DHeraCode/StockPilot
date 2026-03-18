@@ -25,7 +25,7 @@ def create_category(
     if existing:
         logger.warning(f"Categoría ya existe: {category.name}")
         raise HTTPException(status_code=400, detail="Category already exists")
-    db_category = Category(**category.dict())
+    db_category = Category(**category.model_dump())
     db.add(db_category)
     db.commit()
     db.refresh(db_category)
