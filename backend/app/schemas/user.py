@@ -1,5 +1,5 @@
 # app/schemas/user.py
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
 
 class UserCreate(BaseModel):
     username: str
@@ -31,8 +31,7 @@ class UserOut(BaseModel):
     email: str
     is_admin: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class Token(BaseModel):
     access_token: str

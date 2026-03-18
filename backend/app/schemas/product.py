@@ -1,5 +1,5 @@
 #app/schemas/product.py
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from app.schemas.category import CategoryOut
 
@@ -20,8 +20,7 @@ class ProductOut(ProductBase):
     category: Optional[CategoryOut] = None
     
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProductList(BaseModel):
@@ -30,8 +29,7 @@ class ProductList(BaseModel):
     limit: int
     items: List[ProductOut]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
@@ -39,5 +37,4 @@ class ProductUpdate(BaseModel):
     price: Optional[float] = None
     quantity: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
