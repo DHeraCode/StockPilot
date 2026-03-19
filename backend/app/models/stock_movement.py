@@ -2,7 +2,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum
 from sqlalchemy.orm import relationship
 from app.database import Base
-from datetime import datetime
+from sqlalchemy.sql import func
 import enum
 
 class MovementType(str, enum.Enum):
@@ -17,6 +17,6 @@ class StockMovement(Base):
     movement_type = Column(Enum(MovementType), nullable=False)
     quantity = Column(Integer, nullable=False)
     note = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, server_default=func.now())
 
     product = relationship("Product")
