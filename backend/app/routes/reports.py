@@ -1,0 +1,46 @@
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from datetime import datetime, timezone, timedelta
+from app.database import get_db
+from app.models.product import Product
+from app.models.stock_movement import StockMovement
+from app.schemas.report import DashboardSummary
+from app.core.security import get_current_user
+from app.models.user import User
+
+router = APIRouter(prefix="/reports", tags=["reports"])
+
+@router.get("/dashboard", response_model=DashboardSummary)
+def get_dashboard_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # 1. Total de productos (del usuario actual)
+    total_products = db.query(Product).filter(Product.owner_id == current_user.id).count()
+
+    # 2. Valor total del inventario (Precio * Stock)
+    # Nota: Usamos coalesce para manejar el caso de 0 productos y evitar None
+    total_value = db.query(
+        func.coalesce(func.sum(Product.price * Product.quantity), 0)
+    ).filter(Product.owner_id == current_user.id).scalar()
+
+    # 3. Cantidad de productos bajo el stock mínimo
+    low_stock_count = db.query(Product).filter(
+        Product.owner_id == current_user.id,
+        Product.quantity <= Product.min_quantity
+    ).count()
+
+    # 4. Movimientos registrados hoy (UTC)
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    movements_today = db.query(StockMovement).join(Product).filter(
+        Product.owner_id == current_user.id,
+        StockMovement.created_at >= today
+    ).count()
+
+    return {
+        "total_products": total_products,
+        "total_inventory_value": float(total_value),
+        "low_stock_count": low_stock_count,
+        "movements_today": movements_today
+    }

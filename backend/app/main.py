@@ -7,14 +7,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware  # Importante añadir este
-
+from slowapi.middleware import SlowAPIMiddleware 
 
 from app.routes.product import router as product_router
 from app.routes.category import router as category_router
 from app.routes.stock_movement import router as stock_router
+from app.routes import reports
 from app.middleware.logging_middleware import LoggingMiddleware
 from app.core.logger import get_logger
+from app.database import engine, Base
+from app import models
 
 logger = get_logger("main")
 
@@ -38,6 +40,8 @@ async def lifespan(app: FastAPI):
 
     # --- Shutdown ---
     logger.info("StockPilot API detenida")
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="StockPilot API",
@@ -72,11 +76,10 @@ app.include_router(auth.router)
 app.include_router(product_router)
 app.include_router(category_router)
 app.include_router(stock_router)
+app.include_router(reports.router)
 
 @app.get("/")
 def root():
     logger.info("Health check - API running")  
     return {"message": "StockPilot API running"}
 
-# Nota: Se eliminaron @app.on_event("startup") y "shutdown" 
-# porque ya están manejados por la función 'lifespan' arriba.
