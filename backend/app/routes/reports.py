@@ -1,3 +1,4 @@
+#app\routes\reports.py
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -48,31 +49,35 @@ def get_dashboard_summary(
 @router.get("/sales-summary")
 def get_sales_summary(
     days: int = Query(30, description="Días hacia atrás para el reporte"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user) # <--- AÑADIDO: Protección de usuario
 ):
-    # Definir rango de fechas
-    since_date = datetime.utcnow() - timedelta(days=days)
+    # Usar timezone.utc para consistencia con el dashboard
+    since_date = datetime.now(timezone.utc) - timedelta(days=days)
 
-    # 1. Ingresos Totales (Solo salidas)
+    # 1. Ingresos Totales (Solo salidas del usuario actual)
+    # Importante: Unimos con Product para filtrar por owner_id
     total_revenue = db.query(
-        func.sum(StockMovement.quantity * StockMovement.unit_price)
-    ).filter(
+        func.coalesce(func.sum(StockMovement.quantity * StockMovement.unit_price), 0)
+    ).join(Product).filter(
+        Product.owner_id == current_user.id,
         StockMovement.movement_type == MovementType.salida,
         StockMovement.created_at >= since_date
-    ).scalar() or 0
+    ).scalar()
 
-    # 2. Producto más vendido (Top Seller)
+    # 2. Producto más vendido (Top Seller del usuario actual)
     top_product = db.query(
         Product.name,
         func.sum(StockMovement.quantity).label("total_sold")
     ).join(StockMovement).filter(
+        Product.owner_id == current_user.id,
         StockMovement.movement_type == MovementType.salida,
         StockMovement.created_at >= since_date
     ).group_by(Product.id).order_by(func.sum(StockMovement.quantity).desc()).first()
 
     return {
         "period_days": days,
-        "total_revenue": round(total_revenue, 2),
+        "total_revenue": round(float(total_revenue), 2),
         "top_seller": {
             "name": top_product[0] if top_product else "N/A",
             "quantity": top_product[1] if top_product else 0
