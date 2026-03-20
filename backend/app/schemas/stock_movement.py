@@ -15,6 +15,7 @@ class StockMovementOut(BaseModel):
     product_id: int
     movement_type: MovementType
     quantity: int
+    unit_price: float
     note: Optional[str] = None
     created_at: datetime
 

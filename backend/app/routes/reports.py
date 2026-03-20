@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timezone, timedelta
 from app.database import get_db
 from app.models.product import Product
-from app.models.stock_movement import StockMovement
+from app.models.stock_movement import StockMovement, MovementType
 from app.schemas.report import DashboardSummary
 from app.core.security import get_current_user
 from app.models.user import User
@@ -43,4 +43,38 @@ def get_dashboard_summary(
         "total_inventory_value": float(total_value),
         "low_stock_count": low_stock_count,
         "movements_today": movements_today
+    }
+
+@router.get("/sales-summary")
+def get_sales_summary(
+    days: int = Query(30, description="Días hacia atrás para el reporte"),
+    db: Session = Depends(get_db)
+):
+    # Definir rango de fechas
+    since_date = datetime.utcnow() - timedelta(days=days)
+
+    # 1. Ingresos Totales (Solo salidas)
+    total_revenue = db.query(
+        func.sum(StockMovement.quantity * StockMovement.unit_price)
+    ).filter(
+        StockMovement.movement_type == MovementType.salida,
+        StockMovement.created_at >= since_date
+    ).scalar() or 0
+
+    # 2. Producto más vendido (Top Seller)
+    top_product = db.query(
+        Product.name,
+        func.sum(StockMovement.quantity).label("total_sold")
+    ).join(StockMovement).filter(
+        StockMovement.movement_type == MovementType.salida,
+        StockMovement.created_at >= since_date
+    ).group_by(Product.id).order_by(func.sum(StockMovement.quantity).desc()).first()
+
+    return {
+        "period_days": days,
+        "total_revenue": round(total_revenue, 2),
+        "top_seller": {
+            "name": top_product[0] if top_product else "N/A",
+            "quantity": top_product[1] if top_product else 0
+        } if top_product else None
     }

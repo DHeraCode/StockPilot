@@ -15,14 +15,15 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/stock", tags=["stock"])
 
 
-
 @router.post("/", response_model=StockMovementOut)
 def register_movement(
     movement: StockMovementCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(is_admin)
+    current_user: User = Depends(is_admin) # Mantengo is_admin como tenías arriba
 ):
+    # 1. Buscar el producto
     product = db.query(Product).filter(Product.id == movement.product_id).first()
+    
     if not product:
         logger.warning(f"Movimiento fallido - producto no encontrado | ID: {movement.product_id}")
         raise HTTPException(
@@ -30,18 +31,18 @@ def register_movement(
             detail="Product not found"
         )
 
-    # Validar cantidad positiva
+    # 2. Validar cantidad positiva
     if movement.quantity <= 0:
-        logger.warning(f"Movimiento fallido - cantidad inválida: {movement.quantity} | Producto ID: {movement.product_id}")
+        logger.warning(f"Movimiento fallido - cantidad inválida: {movement.quantity}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Quantity must be greater than 0"
         )
 
-    # Actualizar stock según tipo de movimiento
+    # 3. Actualizar stock según tipo de movimiento y validar disponibilidad
     if movement.movement_type == MovementType.salida:
         if product.quantity < movement.quantity:
-            logger.warning(f"Stock insuficiente | Producto ID: {movement.product_id} | Disponible: {product.quantity} | Solicitado: {movement.quantity}")
+            logger.warning(f"Stock insuficiente | Producto: {product.name} | Disponible: {product.quantity}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Insufficient stock. Available: {product.quantity}"
@@ -50,19 +51,26 @@ def register_movement(
     else:
         product.quantity += movement.quantity
 
-    # Persistir movimiento y producto de forma atómica
+    # 4. Persistencia Atómica con unit_price automático
     try:
-        db_movement = StockMovement(**movement.model_dump())
+        # Aquí capturamos el precio actual del producto automáticamente
+        db_movement = StockMovement(
+            **movement.model_dump(),
+            unit_price=product.price  # <--- ESTA ES LA MAGIA
+        )
+        
         db.add(db_movement)
-        db.add(product)        # Garantiza tracking del producto modificado
+        db.add(product) 
         db.commit()
         db.refresh(db_movement)
-        db.refresh(product)    # Sincroniza estado real desde la BD
-        logger.info(f"Movimiento registrado | Producto: {product.name} | Tipo: {movement.movement_type.value} | Cantidad: {movement.quantity} | Stock actual: {product.quantity} | Usuario: {current_user.username}")
+        
+        logger.info(f"Movimiento registrado | Producto: {product.name} | Tipo: {movement.movement_type.value} | Precio Unit: {db_movement.unit_price} | Usuario: {current_user.username}")
+        
         return db_movement
-    except Exception:
+        
+    except Exception as e:
         db.rollback()
-        logger.error(f"Error al guardar movimiento | Producto ID: {movement.product_id} | Usuario: {current_user.username}")
+        logger.error(f"Error crítico al guardar movimiento: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error saving stock movement"
@@ -87,3 +95,4 @@ def get_movements(
     ).all()
     logger.info(f"Consulta de movimientos | Producto ID: {product_id} | Registros: {len(movements)} | Usuario: {current_user.username}")
     return movements
+
