@@ -76,6 +76,18 @@ def register_movement(
             detail="Error saving stock movement"
         )
 
+
+@router.get("/", response_model=List[StockMovementOut])
+def get_all_movements(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(is_admin)
+):
+    movements = db.query(StockMovement).order_by(
+        StockMovement.created_at.desc()
+    ).all()
+    logger.info(f"Consulta global de movimientos | Registros: {len(movements)} | Usuario: {current_user.username}")
+    return movements
+
 @router.get("/{product_id}", response_model=List[StockMovementOut])
 def get_movements(
     product_id: int,

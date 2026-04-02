@@ -1,9 +1,12 @@
 import client from "./client";
 
-// TODO: connected to GET /stock-movements
 export const getMovements = () =>
-  client.get("/stock-movements").then(r => r.data);
+  client.get("/stock/").then(r => r.data);
 
-// TODO: connected to POST /stock-movements
 export const createMovement = (data) =>
-  client.post("/stock-movements", data).then(r => r.data);
+  client.post("/stock/", {
+    product_id:    parseInt(data.product_id, 10),
+    movement_type: data.movement_type,
+    quantity:      parseInt(data.quantity, 10),
+    note:          data.note || "",
+  }).then(r => r.data);

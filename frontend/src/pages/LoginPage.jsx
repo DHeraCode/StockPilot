@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { loginRequest } from "../api/auth";
 
 // ── Icons ──
 function IconBox() {
@@ -86,18 +87,8 @@ export default function LoginPage() {
     setErrors({});
     setLoading(true);
     try {
-      // TODO: reemplazar con fetch real
-      // const res = await fetch(`${import.meta.env.VITE_API_URL}/login`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      //   body: new URLSearchParams({ username, password }),
-      // });
-      // if (!res.ok) throw new Error("Credenciales incorrectas");
-      // const data = await res.json();
-      // login(username, data.access_token);
-
-      await new Promise(r => setTimeout(r, 1200));
-      login(username, "mock-token-123");
+      const data = await loginRequest(username, password);
+      login(username, data.access_token);
       navigate("/");
     } catch (err) {
       setGlobalError(err.message || "Error al iniciar sesión");

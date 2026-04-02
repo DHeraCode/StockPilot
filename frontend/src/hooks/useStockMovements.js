@@ -25,11 +25,5 @@ export function useStockMovements() {
     return created;
   };
 
-  return {
-    movements,
-    loading,
-    error,
-    fetchMovements,
-    addMovement,
-  };
+  return { movements, loading, error, fetchMovements, addMovement };
 }
